@@ -50,6 +50,9 @@ public:
     void process();
 
 private:
+    void findBest();
+
+private:
     bool m_active;
 
     static int m_processesCount;

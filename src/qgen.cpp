@@ -84,6 +84,11 @@ BASETYPE func( BASETYPE a, BASETYPE b )
     return 0;
 }
 
+void QGenProcess::findBest()
+{
+
+}
+
 void QGenProcess::process()
 {
     if ( !m_active )
