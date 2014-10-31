@@ -28,8 +28,8 @@ struct QGenProcessSettings
 {
     long long cycThreshold;
     double timeThreshold;
-    long long individsNum;
-    long long indSize;
+    int individsNum;
+    int indSize;
     QFitnessClass* fClass;
 
     QGenProcessSettings()
@@ -55,7 +55,7 @@ private:
 private:
     bool m_active;
 
-    static int m_processesCount;
+    static int m_instancesCount;
     MPI_Comm m_comm;
     int m_myID;
     int m_commSize;

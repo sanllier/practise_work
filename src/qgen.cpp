@@ -10,7 +10,7 @@
 namespace QGen {
 //------------------------------------------------------------
 
-int QGenProcess::m_processesCount = 0;
+int QGenProcess::m_instancesCount = 0;
 
 enum
 {
@@ -43,16 +43,16 @@ QGenProcess::QGenProcess( const QGenProcessSettings& settings, MPI_Comm comm/* =
     m_comm = comm;
     if ( m_myID == ROOT_ID )
     {
-        ++m_processesCount;
-        CHECK( MPI_Bcast( &m_processesCount, 1, MPI_INT, ROOT_ID, comm ) );
+        ++m_instancesCount;
+        CHECK( MPI_Bcast( &m_instancesCount, 1, MPI_INT, ROOT_ID, comm ) );
     }
     else
     {
-        CHECK( MPI_Bcast( &m_processesCount, 1, MPI_INT, ROOT_ID, comm ) );
+        CHECK( MPI_Bcast( &m_instancesCount, 1, MPI_INT, ROOT_ID, comm ) );
     }
 
     m_indsNumPerProc = settings.individsNum / m_commSize;
-    if ( m_indsNumPerProc == 0 )
+    if ( m_indsNumPerProc < 0 )
     {
         if ( m_myID < settings.individsNum )
         {
@@ -96,12 +96,12 @@ void QGenProcess::process()
 
     double elapsedTime = 0;
     long long catastropheGen = 1;
-    double factor = 0.0;
+    float factor = 0.0;
     QRotOperator op;
 
     for ( long long cycle = 0; cycle < m_settings.cycThreshold; ++cycle )
     {
-        factor = 0.5 * ( ( m_settings.cycThreshold - cycle ) / catastropheGen ) / m_settings.cycThreshold;
+        factor = 0.5f * ( ( m_settings.cycThreshold - cycle ) / catastropheGen ) / m_settings.cycThreshold;
         for ( auto& ind : m_Individs )
         {
             op.compute( factor * func( 0, 0 ) );
