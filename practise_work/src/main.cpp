@@ -19,9 +19,11 @@ public:
         }
         val >>= 1;
 
-        float fit = -1 * (val * val) + 100.0f;
+        const float x = 1.0f / float( val );
+        if ( x > 1.0f || x < 0.01f )
+            return -1000.0f;
 
-        return fit < 0.0f ? 0.0f : fit;
+        return 10.0f + sinf( 1.0f / x ) / ( ( x - 0.16f ) * ( x - 0.16f ) + 0.1f );
     }
 };
 
@@ -40,8 +42,9 @@ int main( int argc, char**argv )
         settings.individsNum = 10;
         settings.indSize = 8;
         settings.timeThreshold = 1000;
-        settings.catastropheThreshold = 4;
-        //settings.targetFitness = 65536;
+        settings.catastropheThreshold = 5;
+        settings.targetFitness = 19.8949;
+        settings.accuracy = 0.5f;
 
         QGen::QGenProcess process( settings );
         process.process();
