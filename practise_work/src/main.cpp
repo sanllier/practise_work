@@ -1,58 +1,63 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <vector>
+#include <algorithm>
 
+#include "parparser.h"
 #include "qgen.h"
+
+#include "knapsack.h"
+#include "multiknapsack.h"
+#include "onemax.h"
 
 //------------------------------------------------------------
 
-class Fitness : public QGen::QFitnessClass
-{
-public:
-    virtual BASETYPE operator()( const QGen::QObservState& observState )
-    {
-        unsigned int val = 0;
-        for ( int i = 0; i < (int)observState.size(); ++i )
-        {
-            val |= observState.at(i) ? 0x1 : 0x0;
-            val <<= 1;
-        }
-        val >>= 1;
-
-        const float x = 1.0f / float( val );
-        if ( x > 1.0f || x < 0.01f )
-            return -1000.0f;
-
-        return 10.0f + sinf( 1.0f / x ) / ( ( x - 0.16f ) * ( x - 0.16f ) + 0.1f );
-    }
-};
+const static int RANDOM_TEST_SIZE = 500;
 
 //------------------------------------------------------------
 
 int main( int argc, char**argv )
 {
-    srand( time(0) );
+	parparser arguments( argc, argv ); 
+	const int cycThreshold = arguments.get( "ct" ).asInt( 1000 );
+	const int individsNum = arguments.get( "inds" ).asInt( 1 );
+	const int indSize = arguments.get( "indsize" ).asInt( RANDOM_TEST_SIZE );
+	const int catastropheThreshold = arguments.get( "catt" ).asInt( 100 );
+    const int immigrationThreshold = arguments.get( "immt" ).asInt( 20 );
+    const int immigrationSize = arguments.get( "imms" ).asInt( 10 );
+    const float timeThreshold = arguments.get( "tt" ).asFloat( 0.0f );
+    const float targetFitness = arguments.get( "fit" ).asFloat( 0.0f );
+    const float accuracy = arguments.get( "acc" ).asFloat( 0.0f );
+    
+    srand( (unsigned)( time(0) ) );
 
     try
     {
-        Fitness fClass;
+        OneMaxFitness fClass;
+        //KnapsackFitness fClass;
+        //Repair repClass;
+
         QGen::QGenProcessSettings settings;
-        settings.cycThreshold = 1000;
-        settings.fClass = &fClass;
-        settings.individsNum = 10;
-        settings.indSize = 8;
-        settings.timeThreshold = 1000;
-        settings.catastropheThreshold = 5;
-        settings.targetFitness = 19.8949;
-        settings.accuracy = 0.5f;
+        settings.cycThreshold = cycThreshold;
+        settings.fClass   = &fClass;
+        //settings.repClass = &repClass;
+        settings.individsNum   = individsNum;
+        settings.indSize       = indSize;
+        settings.timeThreshold = timeThreshold;
+        settings.catastropheThreshold = catastropheThreshold;
+        settings.immigrationThreshold = immigrationThreshold;
+        settings.immigrationSize = immigrationSize;
+        settings.targetFitness   = targetFitness;
+        settings.accuracy = accuracy;
 
         QGen::QGenProcess process( settings );
         process.process();
 
         const QGen::QIndivid bestInd = process.getBestIndivid();
-        if ( process.isMaster() )
-            for ( int i = 0; i < (int)bestInd.qsize(); ++i )
-                std::cout << "(" << bestInd.at(i).a << ", " << bestInd.at(i).b << ")\r\n"; 
+        //if ( process.isMaster() )
+        //    for ( int i = 0; i < (int)bestInd.qsize(); ++i )
+        //        std::cout << "(" << bestInd.at(i).a << ", " << bestInd.at(i).b << ")\r\n"; 
     }
     catch( std::string err )
     {
