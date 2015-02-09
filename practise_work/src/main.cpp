@@ -1,63 +1,78 @@
 #include <iostream>
-#include <cstdlib>
-#include <ctime>
-#include <vector>
-#include <algorithm>
 
 #include "parparser.h"
 #include "qgen.h"
+#include "cgen.h"
 
-#include "knapsack.h"
-#include "multiknapsack.h"
 #include "onemax.h"
 
 //------------------------------------------------------------
 
-const static int RANDOM_TEST_SIZE = 500;
+class QScreen: public QGen::QProcessScreen
+{
+public:
+    void operator()( long long cycle, 
+                     const int coords[2], 
+         const QGen::QBaseIndivid& totalBest, 
+         const QGen::QBaseIndivid& iterBest )
+    {
+        if ( coords[0] == 0 && coords[1] == 0 )
+        {
+            BASETYPE test = totalBest.getFitness();
+            std::cout << test << "\r\n";
+            std::cout.flush();
+        }
+    }
+};
 
 //------------------------------------------------------------
 
+class CScreen: public CGen::CProcessScreen
+{
+public:
+    void operator()( long long cycle, const CGen::CIndivid& individ )
+    {
+        std::cout << individ.getFitness() << "\r\n";
+        std::cout.flush();
+    }
+};
+
+//------------------------------------------------------------
 int main( int argc, char**argv )
 {
 	parparser arguments( argc, argv ); 
-	const int cycThreshold = arguments.get( "ct" ).asInt( 1000 );
-	const int individsNum = arguments.get( "inds" ).asInt( 1 );
-	const int indSize = arguments.get( "indsize" ).asInt( RANDOM_TEST_SIZE );
-	const int catastropheThreshold = arguments.get( "catt" ).asInt( 100 );
-    const int immigrationThreshold = arguments.get( "immt" ).asInt( 20 );
-    const int immigrationSize = arguments.get( "imms" ).asInt( 10 );
-    const float timeThreshold = arguments.get( "tt" ).asFloat( 0.0f );
-    const float targetFitness = arguments.get( "fit" ).asFloat( 0.0f );
-    const float accuracy = arguments.get( "acc" ).asFloat( 0.0f );
-    
-    srand( (unsigned)( time(0) ) );
+    const char* xmlFile = arguments.get( "xml" ).asString(0);
+    bool useCGen        = arguments.get( "cgen" ).asBool( false );
 
     try
-    {
-        OneMaxFitness fClass;
-        //KnapsackFitness fClass;
-        //Repair repClass;
+    {     
+        if ( useCGen )
+        {
+            CScreen screenClass;
+            COneMaxFitness fClass;
+            CGen::SCGenParams settings( xmlFile, &fClass, 0, &screenClass );
+                        
+            double processTime = 0.0;
+            CGen::CGenProcess process( settings );
+            processTime = process.process();
+            std::cout << "TOTAL TIME (CGEN): " << processTime << "\r\n";
+            std::cout.flush();
+        }
+        else
+        {
+            QScreen screenClass;
+            QOneMaxFitness fClass;
+            QGen::SQGenParams settings( xmlFile, &fClass, 0, &screenClass );
 
-        QGen::QGenProcessSettings settings;
-        settings.cycThreshold = cycThreshold;
-        settings.fClass   = &fClass;
-        //settings.repClass = &repClass;
-        settings.individsNum   = individsNum;
-        settings.indSize       = indSize;
-        settings.timeThreshold = timeThreshold;
-        settings.catastropheThreshold = catastropheThreshold;
-        settings.immigrationThreshold = immigrationThreshold;
-        settings.immigrationSize = immigrationSize;
-        settings.targetFitness   = targetFitness;
-        settings.accuracy = accuracy;
-
-        QGen::QGenProcess process( settings );
-        process.process();
-
-        const QGen::QIndivid bestInd = process.getBestIndivid();
-        //if ( process.isMaster() )
-        //    for ( int i = 0; i < (int)bestInd.qsize(); ++i )
-        //        std::cout << "(" << bestInd.at(i).a << ", " << bestInd.at(i).b << ")\r\n"; 
+            double processTime = 0.0;
+            QGen::QGenProcess process( settings );
+            processTime = process.process();
+            if ( process.isMaster() )
+            {
+                std::cout << "TOTAL TIME (QGEN-" << (settings.gpu ? "GPU" : "CPU") << "): " << processTime << "\r\n";
+                std::cout.flush();
+            }
+        }     
     }
     catch( std::string err )
     {

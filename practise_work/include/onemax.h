@@ -2,20 +2,44 @@
 #define ONEMAX_H
 
 #include "qgen.h"
+#include "cgen.h"
+#include "mpicheck.h"
 
 //------------------------------------------------------------
 
-class OneMaxFitness : public QGen::QFitnessClass
+class QOneMaxFitness : public QGen::QFitnessClass
 {
 public:
-    OneMaxFitness() {}
-    ~OneMaxFitness() {}
+    QOneMaxFitness() {}
+    ~QOneMaxFitness() {}
 
-    virtual BASETYPE operator()( const QGen::QObservState& observState )
+    virtual BASETYPE operator()( MPI_Comm indComm, const QGen::QObserveState& observeState, long long startQBit, int idx )
     {
-        float sum = 0.0f;
-        for ( int i = 0; i < (int)( observState.size() ); ++i )
-            if ( observState.at(i) )
+        BASETYPE sum = BASETYPE(0);
+        for ( int i = 0; i < (int)( observeState.size() ); ++i )
+            if ( observeState.at(i) )
+                ++sum;
+
+        BASETYPE total = BASETYPE(0); 
+        CHECK( MPI_Allreduce( &sum, &total, 1, MPI_BASETYPE, MPI_SUM, indComm ) );
+
+        return total;
+    }
+};
+
+//------------------------------------------------------------
+
+class COneMaxFitness : public CGen::CFitnessClass
+{
+public:
+    COneMaxFitness() {}
+    ~COneMaxFitness() {}
+
+    virtual BASETYPE operator()( const CGen::CIndivid& individ )
+    {
+        BASETYPE sum = BASETYPE(0);
+        for ( int i = 0; i < (int)( individ.size() ); ++i )
+            if ( individ.data()[i] )
                 ++sum;
 
         return sum;

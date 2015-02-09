@@ -3,6 +3,7 @@
 
 #include <map>
 #include <string>
+#include <string.h>
 
 //--------------------------------------------------------------
 
@@ -29,6 +30,7 @@ struct KVPair
     long asLong( long def = 0 ) { return isSet ? atol( value ) : def; }
     float asFloat( float def = 0.0f ) { return isSet ? (float)atof( value ) : def; }
     double asDouble( double def = 0.0 ) { return isSet ? atof( value ) : def; }
+    const char* asString( const char* def = "" ) { return isSet ? value : def; }
 
     bool check( const char* pattern ) { return ( isSet && pattern ) ? 0 == strcmp( pattern, value ) : false; }
 };

@@ -1,0 +1,7 @@
+Debug/
+Release/
+CGen/
+QGen/
+knap_test_sets/
+*.pdb
+*.vcxproj.user
