@@ -3,37 +3,32 @@
 
 #include <map>
 #include <string>
-#include <string.h>
 
 //--------------------------------------------------------------
 
-struct KVPair
+class KVPair
 {
-    const char* key;
-    const char* value;
-    bool isSet;
+public:
+    KVPair( const char* key = 0, const char* value = 0 );
+    ~KVPair();
 
-    KVPair( const char* key = 0, const char* value = 0 ):key(0), value(0), isSet( false ) 
-    {
-        if ( key && value )
-            set( key, value );
-    }
-    inline void set( const char* key, const char* value ) 
-    { 
-        this->key = key; 
-        this->value = value; 
-        isSet = true; 
-    }
+    bool asBool( bool def = false );
+    int asInt( int def = 0 );
+    long asLong( long def = 0 );
+    float asFloat( float def = 0.0f );
+    double asDouble( double def = 0.0 );
+    const char* asString( const char* def = "" );
 
-    bool asBool( bool def = false ) { return isSet ? ( 0 == strcmp( "t", value ) || 0 == strcmp( "true", value ) ) : def; }
-    int asInt( int def = 0 ) { return isSet ? atoi( value ) : def; }
-    long asLong( long def = 0 ) { return isSet ? atol( value ) : def; }
-    float asFloat( float def = 0.0f ) { return isSet ? (float)atof( value ) : def; }
-    double asDouble( double def = 0.0 ) { return isSet ? atof( value ) : def; }
-    const char* asString( const char* def = "" ) { return isSet ? value : def; }
+private:
+    void set( const char* key, const char* value );
 
-    bool check( const char* pattern ) { return ( isSet && pattern ) ? 0 == strcmp( pattern, value ) : false; }
+private:
+    const char* m_key;
+    const char* m_value;
+    bool m_isSet;
 };
+
+//--------------------------------------------------------------
 
 class parparser
 {

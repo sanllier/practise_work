@@ -69,8 +69,12 @@ int main( int argc, char**argv )
             processTime = process.process();
             if ( process.isMaster() )
             {
+            #ifdef GPU
                 std::cout << "TOTAL TIME (QGEN-" << (settings.gpu ? "GPU" : "CPU") << "): " << processTime << "\r\n";
+            #else
+                std::cout << "TOTAL TIME (QGEN-CPU): " << processTime << "\r\n";
                 std::cout.flush();
+            #endif
             }
         }     
     }
