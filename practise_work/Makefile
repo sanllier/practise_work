@@ -1,45 +1,89 @@
 all: pwork
 
+#-----------------------------------------------------------------------------
+
 OBJECTS   = obj/main.o obj/parparser.o
-DFLAG     =
-CFLAG     = -Iinclude/ -Iparparser/ -IQGen/include/ -ICGen/include/ -O3
-LFLAGS    = -openmp
-GPULFLAGS = -openmp -L$(LD_LIBRARY_PATH)
 CC        = mpicxx  
-GPU = 
+GPU       = 
+CGEN      = 
+
+#-----------------------------------------------------------------------------
+
+ifneq ($(CGEN), )
+	CFLAGS  = -Iinclude/ -Iparparser/ -IQGen/include/ -ICGen/include/ -O3
+	ifneq ($(GPU), )	
+	    LFLAGS     = -openmp -L$(LD_LIBRARY_PATH)
+		LIBS       = QGen/lib/QGen_gpu.a CGen/lib/CGen.a
+		OUTFILE    = pwork_gpu_cgen
+		DFLAGS     = -DCGEN -DGPU
+	else
+		LFLAGS     = -openmp		
+		LIBS       = QGen/lib/QGen_cpu.a CGen/lib/CGen.a
+		OUTFILE    = pwork_cpu_cgen
+		DFLAGS     = -DCGEN
+	endif
+else    
+    CFLAGS  = -Iinclude/ -Iparparser/ -IQGen/include/ -O3
+    DFLAGS  = 
+    ifneq ($(GPU), )	
+		LFLAGS   = -L$(LD_LIBRARY_PATH)
+		LIBS     = QGen/lib/QGen_gpu.a
+		OUTFILE  = pwork_gpu
+		DFLAGS   = -DGPU
+	else
+		LFLAGS   = 
+		LIBS     = QGen/lib/QGen_cpu.a
+		OUTFILE  = pwork_cpu
+		DFLAGS   = 
+	endif
+endif
+
+ifneq ($(GPU), )	
+	TARGETMAKE = -C QGen/ -f Makefile_GPU all
+else
+	TARGETMAKE = -C QGen/ -f Makefile_CPU all
+endif
+
+#-----------------------------------------------------------------------------
 
 pwork: $(OBJECTS)
 	@mkdir -p bin
 	@echo "\033[30;1;41m "bin" dir created \033[0m"
+	@make $(TARGETMAKE)
+ifneq ($(CGEN), )	
 	@make -C CGen/ -f Makefile all
-ifneq ($(GPU), )
-	@make -C QGen/ -f Makefile_GPU all
-	@$(CC) $(GPULFLAGS) $(OBJECTS) QGen/lib/QGen_gpu.a CGen/lib/CGen.a -o bin/pwork_gpu
-else
-	@make -C QGen/ -f Makefile_CPU all	
-	@$(CC) $(LFLAGS) $(OBJECTS) QGen/lib/QGen_cpu.a CGen/lib/CGen.a -o bin/pwork
 endif
+	@$(CC) $(LFLAGS) $(OBJECTS) $(LIBS) -o bin/$(OUTFILE)
+	@echo "\033[30;1;41m ALL DONE \033[0m"
+
+#-----------------------------------------------------------------------------
 
 obj/main.o: src/main.cpp
 	@mkdir -p obj
-ifneq ($(GPU), )
-	@$(CC) -c -DGPU $(CFLAG) $^ -o $@
-else
-	@$(CC) -c $(CFLAG) $^ -o $@
-endif
+	@$(CC) -c $(DFLAGS) $(CFLAGS) $^ -o $@
 	@echo "\033[30;1;46m $@ - done \033[0m\n"
+
+#-----------------------------------------------------------------------------
 
 obj/parparser.o: parparser/parparser.cpp
 	@mkdir -p obj
-	@$(CC) -c $(CFLAG) $^ -o $@
+	@$(CC) -c $(CFLAGS) $^ -o $@
 	@echo "\033[30;1;46m $@ - done \033[0m\n"
+
+#-----------------------------------------------------------------------------
 
 clean:
 	rm -r -f bin
 	rm -r -f obj
 
+#-----------------------------------------------------------------------------
+
 clean_lib:
 	@make -C CGen/ -f Makefile clean
 	@make -C QGen/ -f Makefile_CPU clean
 
+#-----------------------------------------------------------------------------
+
 clean_all: clean clean_lib
+
+#-----------------------------------------------------------------------------

@@ -2,7 +2,9 @@
 
 #include "parparser.h"
 #include "qgen.h"
-#include "cgen.h"
+#ifdef CGEN
+    #include "cgen.h"
+#endif
 
 #include "onemax.h"
 
@@ -27,6 +29,8 @@ public:
 
 //------------------------------------------------------------
 
+#ifdef CGEN
+
 class CScreen: public CGen::CProcessScreen
 {
 public:
@@ -37,15 +41,20 @@ public:
     }
 };
 
+#endif
+
 //------------------------------------------------------------
 int main( int argc, char**argv )
 {
 	parparser arguments( argc, argv ); 
     const char* xmlFile = arguments.get( "xml" ).asString(0);
+#ifdef CGEN 
     bool useCGen        = arguments.get( "cgen" ).asBool( false );
+#endif
 
     try
-    {     
+    {    
+    #ifdef CGEN 
         if ( useCGen )
         {
             CScreen screenClass;
@@ -60,6 +69,7 @@ int main( int argc, char**argv )
         }
         else
         {
+    #endif
             QScreen screenClass;
             QOneMaxFitness fClass;
             QGen::SQGenParams settings( xmlFile, &fClass, 0, &screenClass );
@@ -76,7 +86,9 @@ int main( int argc, char**argv )
                 std::cout.flush();
             #endif
             }
-        }     
+    #ifdef CGEN  
+        }  
+    #endif   
     }
     catch( std::string err )
     {

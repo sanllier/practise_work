@@ -2,7 +2,9 @@
 #define ONEMAX_H
 
 #include "qgen.h"
-#include "cgen.h"
+#ifdef CGEN
+    #include "cgen.h"
+#endif
 #include "mpicheck.h"
 
 //------------------------------------------------------------
@@ -29,6 +31,8 @@ public:
 
 //------------------------------------------------------------
 
+#ifdef CGEN
+
 class COneMaxFitness : public CGen::CFitnessClass
 {
 public:
@@ -45,6 +49,8 @@ public:
         return sum;
     }
 };
+
+#endif
 
 //------------------------------------------------------------
 #endif
