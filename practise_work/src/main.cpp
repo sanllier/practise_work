@@ -1,4 +1,6 @@
 #include <iostream>
+#include <fstream>
+#include <string>
 
 #include "parparser.h"
 #include "qgen.h"
@@ -20,11 +22,30 @@ public:
     {
         if ( coords[0] == 0 && coords[1] == 0 )
         {
-            BASETYPE test = totalBest.getFitness();
-            std::cout << test << "\r\n";
-            std::cout.flush();
+            BASETYPE fitness = totalBest.getFitness();
+
+            if ( !m_outFile.empty() )
+            {
+                std::ofstream oStr;              
+                oStr.open( m_outFile.c_str(), std::ofstream::out | std::ofstream::app );
+                oStr << fitness << "\n";
+                oStr.close();
+            }
+            else
+            {            
+                std::cout << fitness << "\n";
+                std::cout.flush();
+            }
         }
     }
+
+    void setOutFile( const std::string& outFile )
+    {
+        m_outFile = outFile;
+    }
+
+private:
+    std::string m_outFile;
 };
 
 //------------------------------------------------------------
@@ -74,17 +95,34 @@ int main( int argc, char**argv )
             QOneMaxFitness fClass;
             QGen::SQGenParams settings( xmlFile, &fClass, 0, &screenClass );
 
+            screenClass.setOutFile( settings.outFile );
+
             double processTime = 0.0;
             QGen::QGenProcess process( settings );
             processTime = process.process();
             if ( process.isMaster() )
             {
-            #ifdef GPU
-                std::cout << "TOTAL TIME (QGEN-" << (settings.gpu ? "GPU" : "CPU") << "): " << processTime << "\r\n";
-            #else
-                std::cout << "TOTAL TIME (QGEN-CPU): " << processTime << "\r\n";
-                std::cout.flush();
-            #endif
+                if ( !settings.outFile.empty() )
+                {
+                    std::ofstream oStr;
+                    oStr.open( settings.outFile.c_str(), std::ofstream::out | std::ofstream::app );
+                #ifdef GPU
+                    oStr << "TOTAL TIME (QGEN-" << (settings.gpu ? "GPU" : "CPU") << "): " << processTime << "\r\n";
+                #else
+                    oStr << "TOTAL TIME (QGEN-CPU): " << processTime << "\r\n";
+                    oStr.flush();
+                #endif
+                    oStr.close();
+                }
+                else
+                {
+                #ifdef GPU
+                    std::cout << "TOTAL TIME (QGEN-" << (settings.gpu ? "GPU" : "CPU") << "): " << processTime << "\r\n";
+                #else
+                    std::cout << "TOTAL TIME (QGEN-CPU): " << processTime << "\r\n";
+                    std::cout.flush();
+                #endif
+                }
             }
     #ifdef CGEN  
         }  
