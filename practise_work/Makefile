@@ -12,7 +12,7 @@ CGEN      =
 ifneq ($(CGEN), )
 	CFLAGS  = -Iinclude/ -Iparparser/ -IQGen/include/ -ICGen/include/ -O3
 	ifneq ($(GPU), )	
-	    LFLAGS     = -openmp -L$(LD_LIBRARY_PATH)
+	    LFLAGS     = -openmp -L/opt/cuda/cuda-6.5/lib64 -lcudart -lcurand
 		LIBS       = QGen/lib/QGen_gpu.a CGen/lib/CGen.a
 		OUTFILE    = pwork_gpu_cgen
 		DFLAGS     = -DCGEN -DGPU
@@ -22,11 +22,10 @@ ifneq ($(CGEN), )
 		OUTFILE    = pwork_cpu_cgen
 		DFLAGS     = -DCGEN
 	endif
-else    
+else
     CFLAGS  = -Iinclude/ -Iparparser/ -IQGen/include/ -O3
-    DFLAGS  = 
     ifneq ($(GPU), )	
-		LFLAGS   = -L$(LD_LIBRARY_PATH)
+		LFLAGS   = -L/opt/cuda/cuda-6.5/lib64 -lcudart -lcurand
 		LIBS     = QGen/lib/QGen_gpu.a
 		OUTFILE  = pwork_gpu
 		DFLAGS   = -DGPU
