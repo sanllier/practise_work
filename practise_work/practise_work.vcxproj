@@ -87,6 +87,8 @@
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\basic_screen.h" />
+    <ClInclude Include="include\knapsack.h" />
     <ClInclude Include="include\onemax.h" />
     <ClInclude Include="include\qap.h" />
   </ItemGroup>

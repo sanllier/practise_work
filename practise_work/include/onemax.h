@@ -1,19 +1,17 @@
 #ifndef ONEMAX_H
 #define ONEMAX_H
 
+#include "parparser.h"
 #include "qgen.h"
-#ifdef CGEN
-    #include "cgen.h"
-#endif
+#include "basic_screen.h"
 #include "mpicheck.h"
 
 //------------------------------------------------------------
 
-class QOneMaxFitness : public QGen::QFitnessClass
+class OneMaxProblem : public QGen::IFitness
 {
 public:
-    QOneMaxFitness() {}
-    ~QOneMaxFitness() {}
+        // QGen::IFitness
 
     virtual BASETYPE operator()( MPI_Comm indComm, const QGen::QObserveState& observeState, long long startQBit, int idx )
     {
@@ -31,26 +29,35 @@ public:
 
 //------------------------------------------------------------
 
-#ifdef CGEN
-
-class COneMaxFitness : public CGen::CFitnessClass
+int onemax_main( parparser& args )
 {
-public:
-    COneMaxFitness() {}
-    ~COneMaxFitness() {}
+    const char* xmlFile = args.get( "xml" ).asString(0);
 
-    virtual BASETYPE operator()( const CGen::CIndivid& individ )
-    {
-        BASETYPE sum = BASETYPE(0);
-        for ( int i = 0; i < (int)( individ.size() ); ++i )
-            if ( individ.data()[i] )
-                ++sum;
+    try
+    {       
+        QScreen screenClass;
+        OneMaxProblem workClass;
 
-        return sum;
+        QGen::SParams params( MPI_COMM_WORLD, xmlFile, &workClass, 0, &screenClass );
+        params.indSize = params.problemSize;
+
+        double processTime = 0.0;
+        QGen::QGenProcess process( params );
+        processTime = process.process();
+        if ( process.isMaster() )
+        {
+            std::cout << "TOTAL TIME (QGEN-CPU): " << processTime << "\r\n";
+            std::cout.flush();
+        }
     }
-};
+    catch( std::string err )
+    {
+        std::cout << "ERROR OCCURED:\r\n    " << err << "\r\n";
+        std::cout.flush();
+    }
 
-#endif
+    return 0;
+}
 
 //------------------------------------------------------------
 #endif

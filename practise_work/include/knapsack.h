@@ -1,5 +1,15 @@
+//------------------------------------------------------------
+//-------------------------WARNING---------------------------
+// Use this class only with 1xN-topology
+//------------------------------------------------------------
+//------------------------------------------------------------
+
 #ifndef KNAPSACK_H
 #define KNAPSACK_H
+
+#include "parparser.h"
+#include "qgen.h"
+#include "basic_screen.h"
 
 #include <vector>
 #include <iostream>
@@ -7,31 +17,24 @@
 #include <fstream>
 #include <algorithm>
 
-#include "qgen.h"
-
-//-----------------------------------------------------------
-//-------------------------WARNING--------------------------
-// Use this class only with 1xN-topology
-//------------------------------------------------------------
-
-struct Item
-{
-    BASETYPE profit;
-    BASETYPE weight;
-};
-
 //------------------------------------------------------------
 
 class Knapsack
 {
 public:
-    Knapsack()
-        : m_size(0.0f) 
-    {}
-    ~Knapsack() {}
+    struct Item
+    {
+        BASETYPE profit;
+        BASETYPE weight;
+    };
 
-    inline int size() const { return m_items.size(); }
-    inline BASETYPE knapSize() const { return m_size; }
+public:
+    Knapsack()
+        : m_size( BASETYPE(0) ) 
+    {}
+
+    int itemsNum() const { return m_items.size(); }
+    BASETYPE capacity() const { return m_size; }
 
     Item& operator[]( int idx ) { return m_items[ idx ]; } 
 
@@ -42,6 +45,7 @@ public:
 
         return oStr;
     }
+
     std::istream& operator>>( std::istream& iStr )
     {
         iStr >> m_size;
@@ -71,15 +75,15 @@ public:
         if ( !capF.good() )
             throw std::string( "Invalid cap file." );
 
-        std::ifstream weightsF;
-        weightsF.open( weightsFile, std::ifstream::in );
-        if ( !weightsF.good() )
-            throw std::string( "Invalid weights file." );
-
         std::ifstream profitsF;
         profitsF.open( profitsFile, std::ifstream::in );
         if ( !profitsF.good() )
             throw std::string( "Invalid profits file." );
+
+        std::ifstream weightsF;
+        weightsF.open( weightsFile, std::ifstream::in );
+        if ( !weightsF.good() )
+            throw std::string( "Invalid weights file." );
 
         int elementsNum = 0;
         capF >> m_size >> elementsNum;
@@ -88,11 +92,11 @@ public:
         for ( int i = 0; i < elementsNum; ++i )
         {
             m_items.push_back( Item() );
-            weightsF >> m_items.back().weight;
             profitsF >> m_items.back().profit;
+            weightsF >> m_items.back().weight;            
         }
-        weightsF.close();
         profitsF.close();
+        weightsF.close();        
     }
 
 private:
@@ -102,114 +106,151 @@ private:
 
 //------------------------------------------------------------
 
-class KnapsackFitness : public QGen::QFitnessClass
+class KnapsackProblem : public QGen::IFitness
+                      , public QGen::IRepair
 {
 public:
-    KnapsackFitness( Knapsack* knap )
-        : m_knap( knap )
+    KnapsackProblem( Knapsack* knapsack )
+        : m_knapsack( knapsack )
     {
-        if ( !knap )
-            throw std::string( "KnapsackFitness is trying to use NULL knapsack" ).append( __FUNCTION__ );  
+        if ( !knapsack )
+            throw std::string( "KnapsackProblem is trying to use NULL knapsack" ).append( __FUNCTION__ );  
+
+        for ( int i = 0; i < m_knapsack->itemsNum(); ++i )
+        {
+            m_ratios.push_back( ItemRatio() );
+            m_ratios.back().pos = i;
+            m_ratios.back().ratio = (*m_knapsack)[i].profit / (*m_knapsack)[i].weight;
+        }
+
+        std::sort( m_ratios.begin(), m_ratios.end() );
     }
-    ~KnapsackFitness() {}
 
-    virtual BASETYPE operator()( MPI_Comm indComm, const QGen::QObservState& observState, long long startQBit, int idx )
+    ~KnapsackProblem() 
     {
-        BASETYPE totalProfit = 0.0f;
-        Knapsack& knapPt = *m_knap;
+        delete m_knapsack;
+    }
 
-        for ( int i = 0; i < knapPt.size(); ++i )
-            if ( observState.at(i) )
+    //--------------------------------------------------------
+
+        // QGen::IFitness
+
+    virtual BASETYPE operator()( MPI_Comm indComm, const QGen::QObserveState& observeState, long long startQBit, int idx )
+    {
+        BASETYPE totalProfit = BASETYPE(0);
+        Knapsack& knapPt = *m_knapsack;
+
+        for ( int i = 0; i < knapPt.itemsNum(); ++i )
+            if ( observeState.at(i) )
                 totalProfit += knapPt[i].profit;
 
         return totalProfit;
     }
 
-private:
-    Knapsack* m_knap;
-};
+        // QGen::IRepair
 
-//------------------------------------------------------------
-
-class KnapsackRepair : public QGen::QRepairClass
-{
-public:
-    KnapsackRepair( Knapsack* knap )
-        : m_knap( knap )
+    virtual void operator()( MPI_Comm indComm, QGen::QObserveState& observeState, long long startQBit, int idx )
     {
-        if ( !knap )
-            throw std::string( "KnapsackRepair is trying to use NULL knapsack" ).append( __FUNCTION__ );  
-
-        for ( int i = 0; i < m_knap->size(); ++i )
-        {
-            m_ratios.push_back( ItemRatio() );
-            m_ratios.back().pos = i;
-            m_ratios.back().ratio = (*m_knap)[i].profit / (*m_knap)[i].weight;
-        }
-
-        std::sort( m_ratios.begin(), m_ratios.end() );
-    }
-    ~KnapsackRepair() {}
-
-    virtual void operator()( MPI_Comm indComm, QGen::QObservState& observState, long long startQBit, int idx )
-    {
-        bool overfilled = computeWeight( observState ) > m_knap->knapSize();
+        bool overfilled = computeWeight( observeState ) > m_knapsack->capacity();
         int pos = m_ratios.size() - 1;
         while ( overfilled && pos >= 0 )
         {
             while ( pos >= 0 )
             {
-                if ( observState.at( m_ratios[ pos ].pos ) )
+                if ( observeState.at( m_ratios[ pos ].pos ) )
                 {
-                    observState.setBit( m_ratios[ pos ].pos, false );
+                    observeState.set( m_ratios[ pos ].pos, false );
                     break;
                 }
                 --pos;
             }          
-            overfilled = computeWeight( observState ) > m_knap->knapSize();
+            overfilled = computeWeight( observeState ) > m_knapsack->capacity();
         }
 
         pos = 0;
-        while ( !overfilled && pos < (int)( observState.size() ) )
+        while ( !overfilled && pos < (int)( observeState.size() ) )
         {
-            while ( pos < (int)( observState.size() ) )
+            while ( pos < (int)( observeState.size() ) )
             {
-                if ( !observState.at( m_ratios[ pos ].pos ) )
+                if ( !observeState.at( m_ratios[ pos ].pos ) )
                 {
-                    observState.setBit( m_ratios[ pos ].pos, true );
+                    observeState.set( m_ratios[ pos ].pos, true );
                     break;
                 }
                 ++pos;
             }
-            overfilled = computeWeight( observState ) > m_knap->knapSize();
+            overfilled = computeWeight( observeState ) > m_knapsack->capacity();
         }
 
-        observState.setBit( m_ratios[ pos ].pos, false );
+        observeState.set( m_ratios[ pos ].pos, false );
     }
 
+    //--------------------------------------------------------
+
 private:
-    BASETYPE computeWeight( const QGen::QObservState& observState )
+    BASETYPE computeWeight( const QGen::QObserveState& observState )
     {
-        BASETYPE weight = 0.0f;
-        for ( int i = 0; i < m_knap->size(); ++i )
+        BASETYPE weight = BASETYPE(0);
+        for ( int i = 0; i < m_knapsack->itemsNum(); ++i )
             if ( observState.at(i) )
-                weight += (*m_knap)[i].weight;
+                weight += (*m_knapsack)[i].weight;
 
         return weight;
     }
 
 private:
+    Knapsack* m_knapsack;
+
     struct ItemRatio
     {
         BASETYPE ratio;
         int pos;
 
-        bool operator<( const ItemRatio& item ) { return ratio > item.ratio; } 
+        bool operator<( const ItemRatio& item ) const { return ratio > item.ratio; } 
     };
     std::vector< ItemRatio > m_ratios;
-
-    Knapsack* m_knap;
 };
+
+//------------------------------------------------------------
+
+int knapsack_main( parparser& args )
+{
+    const char* xmlFile = args.get( "xml" ).asString(0);
+
+    try
+    { 
+        QGen::SParams params( MPI_COMM_WORLD, xmlFile );
+        params.indSize = params.problemSize;
+        const char* knapsackDataFolder = params.getCustomParameter( "knapsack-folder" );
+        if ( knapsackDataFolder == 0 )
+            throw std::string( "Unspecified knapsack folder data. " ).append( __FUNCTION__ );  
+
+        Knapsack knapsack;
+        knapsack.loadFromFiles( knapsackDataFolder );
+
+        QScreen screenClass;
+        KnapsackProblem workClass( &knapsack );
+        params.fClass = &workClass;
+        params.repClass = &workClass;
+        params.screenClass = &screenClass;
+
+        double processTime = 0.0;
+        QGen::QGenProcess process( params );
+        processTime = process.process();
+        if ( process.isMaster() )
+        {
+            std::cout << "TOTAL TIME (QGEN-CPU): " << processTime << "\r\n";
+            std::cout.flush();
+        }
+    }
+    catch( std::string err )
+    {
+        std::cout << "ERROR OCCURED:\r\n    " << err << "\r\n";
+        std::cout.flush();
+    }
+
+    return 0;
+}
 
 //------------------------------------------------------------
 #endif

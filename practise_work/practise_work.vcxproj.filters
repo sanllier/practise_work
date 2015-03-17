@@ -25,5 +25,11 @@
     <ClInclude Include="include\qap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\basic_screen.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\knapsack.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
