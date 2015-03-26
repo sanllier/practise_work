@@ -9,38 +9,23 @@ CGEN      =
 
 #-----------------------------------------------------------------------------
 
-ifneq ($(CGEN), )
-	CFLAGS  = -Iinclude/ -Iparparser/ -IQGen/include/ -ICGen/include/ -O3
-	ifneq ($(GPU), )	
-	    LFLAGS     = -openmp -L/opt/cuda/cuda-6.5/lib64 -lcudart -lcurand
-		LIBS       = QGen/lib/QGen_gpu.a CGen/lib/CGen.a
-		OUTFILE    = pwork_gpu_cgen
-		DFLAGS     = -DCGEN -DGPU
-	else
-		LFLAGS     = -openmp		
-		LIBS       = QGen/lib/QGen_cpu.a CGen/lib/CGen.a
-		OUTFILE    = pwork_cpu_cgen
-		DFLAGS     = -DCGEN
-	endif
+CFLAGS  = -Iinclude/ -Iparparser/ -IQGen/include/ -O3
+ifneq ($(GPU), )	
+	LFLAGS   = -L/opt/cuda/cuda-6.5/lib64 -lcudart -lcurand
+	LIBS     = QGen/lib/qgen_gpu.a
+	OUTFILE  = pwork_gpu
+	DFLAGS   = -DGPU
 else
-    CFLAGS  = -Iinclude/ -Iparparser/ -IQGen/include/ -O3
-    ifneq ($(GPU), )	
-		LFLAGS   = -L/opt/cuda/cuda-6.5/lib64 -lcudart -lcurand
-		LIBS     = QGen/lib/QGen_gpu.a
-		OUTFILE  = pwork_gpu
-		DFLAGS   = -DGPU
-	else
-		LFLAGS   = 
-		LIBS     = QGen/lib/QGen_cpu.a
-		OUTFILE  = pwork_cpu
-		DFLAGS   = 
-	endif
+	LFLAGS   = 
+	LIBS     = QGen/lib/qgen_cpu.a
+	OUTFILE  = pwork_cpu
+	DFLAGS   = 
 endif
 
 ifneq ($(GPU), )	
-	TARGETMAKE = -C QGen/ -f Makefile_GPU all
+	TARGETMAKE = -C QGen/ -f Makefile all GPU=Y
 else
-	TARGETMAKE = -C QGen/ -f Makefile_CPU all
+	TARGETMAKE = -C QGen/ -f Makefile all
 endif
 
 #-----------------------------------------------------------------------------
@@ -49,9 +34,6 @@ pwork: $(OBJECTS)
 	@mkdir -p bin
 	@echo "\033[30;1;41m "bin" dir created \033[0m"
 	@make $(TARGETMAKE)
-ifneq ($(CGEN), )	
-	@make -C CGen/ -f Makefile all
-endif
 	@$(CC) $(LFLAGS) $(OBJECTS) $(LIBS) -o bin/$(OUTFILE)
 	@echo "\033[30;1;41m ALL DONE \033[0m"
 
@@ -78,8 +60,7 @@ clean:
 #-----------------------------------------------------------------------------
 
 clean_lib:
-	@make -C CGen/ -f Makefile clean
-	@make -C QGen/ -f Makefile_CPU clean
+	@make -C QGen/ -f Makefile clean
 
 #-----------------------------------------------------------------------------
 
