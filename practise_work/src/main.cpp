@@ -1,6 +1,7 @@
 #include "qap.h"
 #include "onemax.h"
 #include "knapsack.h"
+#include "mapping.h"
 
 #include "mpi.h"
 
@@ -25,6 +26,8 @@ int main( int argc, char**argv )
             retCode = knapsack_main( arguments );
         else if ( 0 ==  strcmp( "qap", problem ) )
             retCode = qap_main( arguments );
+        else if ( 0 == strcmp( "mapping", problem ) )
+            retCode = mapping_main( arguments );
     }
     else
     {  

@@ -5,12 +5,9 @@
 #include "qgen.h"
 #include "mpicheck.h"
 #include "basic_screen.h"
+#include "helpers.h"
+
 #include <math.h>
-
-//------------------------------------------------------------
-
-BASETYPE log2( BASETYPE arg ) { return logf( arg ) / logf(2); }
-BASETYPE roundUpToPowOfTwo( BASETYPE arg ) { return powf( 2, ceil( log2( arg ) ) ); }
 
 //------------------------------------------------------------
 
