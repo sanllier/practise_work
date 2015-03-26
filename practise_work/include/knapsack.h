@@ -71,17 +71,17 @@ public:
         std::string profitsFile = std::string( folder ).append( "/profits.txt" );
 
         std::ifstream capF;
-        capF.open( capFile, std::ifstream::in );
+        capF.open( capFile.c_str(), std::ifstream::in );
         if ( !capF.good() )
             throw std::string( "Invalid cap file." );
 
         std::ifstream profitsF;
-        profitsF.open( profitsFile, std::ifstream::in );
+        profitsF.open( profitsFile.c_str(), std::ifstream::in );
         if ( !profitsF.good() )
             throw std::string( "Invalid profits file." );
 
         std::ifstream weightsF;
-        weightsF.open( weightsFile, std::ifstream::in );
+        weightsF.open( weightsFile.c_str(), std::ifstream::in );
         if ( !weightsF.good() )
             throw std::string( "Invalid weights file." );
 
