@@ -6,6 +6,8 @@
 #include "basic_screen.h"
 #include "mpicheck.h"
 
+#include <string>
+
 //------------------------------------------------------------
 
 class OneMaxProblem : public QGen::IFitness
@@ -35,25 +37,23 @@ int onemax_main( parparser& args )
 
     try
     {       
-        QScreen screenClass;
         OneMaxProblem workClass;
-
-        QGen::SParams params( MPI_COMM_WORLD, xmlFile, &workClass, 0, &screenClass );
+        QGen::SParams params( MPI_COMM_WORLD, xmlFile, &workClass, 0, 0 );
+        QFileScreen screenClass( params.outFile.c_str() );
         params.indSize = params.problemSize;
+        params.screenClass = &screenClass;
 
         double processTime = 0.0;
         QGen::QGenProcess process( params );
         processTime = process.process();
         if ( process.isMaster() )
-        {
-            std::cout << "TOTAL TIME (QGEN-CPU): " << processTime << "\r\n";
-            std::cout.flush();
-        }
+            screenClass.printString( std::string( "TOTAL TIME (QGEN-CPU): " ).append( std::to_string( processTime ) ).c_str() );
     }
     catch( std::string err )
     {
-        std::cout << "ERROR OCCURED:\r\n    " << err << "\r\n";
-        std::cout.flush();
+        
+        std::cerr << "ERROR OCCURED:\n    " << err << "\n";
+        std::cerr.flush();
     }
 
     return 0;

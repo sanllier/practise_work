@@ -17,7 +17,7 @@ int main( int argc, char**argv )
     parparser arguments( argc, argv ); 
     const char* problem = arguments.get( "problem" ).asString(0);
 
-    int retCode = -1;
+    int retCode = 1;
     if ( problem )
     {
         if ( 0 == strcmp( "onemax", problem ) )
@@ -32,7 +32,7 @@ int main( int argc, char**argv )
     else
     {  
         std::cout << "Invalid problem. Specify it via -problem parameter.\r\n";
-        std::cout << "    Available problems: onemax, knapsack, qap.\r\n";
+        std::cout << "    Available problems: onemax, knapsack, qap, mapping\r\n";
     }
     
     MPI_Finalize();
