@@ -151,7 +151,8 @@ public:
 
     virtual void operator()( MPI_Comm indComm, QGen::QObserveState& observeState, long long startQBit, int idx )
     {
-        bool overfilled = computeWeight( observeState ) > m_knapsack->capacity();
+        BASETYPE currentWeight = computeWeight( observeState );
+        bool overfilled = currentWeight > m_knapsack->capacity();
         int pos = m_ratios.size() - 1;
         while ( overfilled && pos >= 0 )
         {
@@ -160,11 +161,12 @@ public:
                 if ( observeState.at( m_ratios[ pos ].pos ) )
                 {
                     observeState.set( m_ratios[ pos ].pos, false );
+                    currentWeight -= (*m_knapsack)[ m_ratios[ pos ].pos ].weight;
                     break;
                 }
                 --pos;
             }          
-            overfilled = computeWeight( observeState ) > m_knapsack->capacity();
+            overfilled = currentWeight > m_knapsack->capacity();
         }
 
         pos = 0;
@@ -175,11 +177,12 @@ public:
                 if ( !observeState.at( m_ratios[ pos ].pos ) )
                 {
                     observeState.set( m_ratios[ pos ].pos, true );
+                    currentWeight += (*m_knapsack)[ m_ratios[ pos ].pos ].weight;
                     break;
                 }
                 ++pos;
             }
-            overfilled = computeWeight( observeState ) > m_knapsack->capacity();
+            overfilled = currentWeight > m_knapsack->capacity();
         }
 
         observeState.set( m_ratios[ pos ].pos, false );
@@ -228,7 +231,7 @@ int knapsack_main( parparser& args )
         Knapsack knapsack;
         knapsack.loadFromFiles( knapsackDataFolder );
 
-        QScreen screenClass;
+        QFileScreen screenClass( params.outFile.c_str() );
         KnapsackProblem workClass( &knapsack );
         params.fClass = &workClass;
         params.repClass = &workClass;
@@ -238,10 +241,7 @@ int knapsack_main( parparser& args )
         QGen::QGenProcess process( params );
         processTime = process.process();
         if ( process.isMaster() )
-        {
-            std::cout << "TOTAL TIME (QGEN-CPU): " << processTime << "\r\n";
-            std::cout.flush();
-        }
+            screenClass.printString( std::string( "TOTAL TIME (QGEN-CPU): " ).append( std::to_string( processTime ) ).c_str() );
     }
     catch( std::string err )
     {
