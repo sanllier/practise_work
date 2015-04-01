@@ -7,6 +7,7 @@
 #include "mpicheck.h"
 
 #include <string>
+#include <sstream>
 
 //------------------------------------------------------------
 
@@ -47,7 +48,12 @@ int onemax_main( parparser& args )
         QGen::QGenProcess process( params );
         processTime = process.process();
         if ( process.isMaster() )
-            screenClass.printString( std::string( "TOTAL TIME (QGEN-CPU): " ).append( std::to_string( processTime ) ).c_str() );
+        {
+            std::stringstream sStr;
+            sStr << "TOTAL TIME (QGEN-CPU): " << processTime;
+            screenClass.printSStream( sStr );
+        }
+            
     }
     catch( std::string err )
     {

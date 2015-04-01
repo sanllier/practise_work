@@ -16,6 +16,7 @@
 #include <string>
 #include <fstream>
 #include <algorithm>
+#include <sstream>
 
 //------------------------------------------------------------
 
@@ -31,6 +32,8 @@ public:
 public:
     Knapsack()
         : m_size( BASETYPE(0) ) 
+    {}
+    ~Knapsack()
     {}
 
     int itemsNum() const { return m_items.size(); }
@@ -61,42 +64,26 @@ public:
         return iStr;
     }
 
-    void loadFromFiles( const char* folder )
+    void loadFromFile( const char* fileName )
     {
-        if ( !folder )
-            throw std::string( "Invalid data folder." );
+        if ( !fileName || !fileName[0] )
+            throw std::string( "Invalid knapsack file name." );
 
-        std::string capFile = std::string( folder ).append( "/cap.txt" );
-        std::string weightsFile = std::string( folder ).append( "/weights.txt" );
-        std::string profitsFile = std::string( folder ).append( "/profits.txt" );
-
-        std::ifstream capF;
-        capF.open( capFile.c_str(), std::ifstream::in );
-        if ( !capF.good() )
-            throw std::string( "Invalid cap file." );
-
-        std::ifstream profitsF;
-        profitsF.open( profitsFile.c_str(), std::ifstream::in );
-        if ( !profitsF.good() )
-            throw std::string( "Invalid profits file." );
-
-        std::ifstream weightsF;
-        weightsF.open( weightsFile.c_str(), std::ifstream::in );
-        if ( !weightsF.good() )
-            throw std::string( "Invalid weights file." );
+        std::ifstream kf;
+        kf.open( fileName, std::ifstream::in );
+        if ( !kf.good() )
+            throw std::string( "Invalid knapsack file." );
 
         int elementsNum = 0;
-        capF >> m_size >> elementsNum;
-        capF.close();
+        kf >> m_size >> elementsNum;
 
         for ( int i = 0; i < elementsNum; ++i )
         {
             m_items.push_back( Item() );
-            profitsF >> m_items.back().profit;
-            weightsF >> m_items.back().weight;            
+            kf >> m_items.back().profit;
+            kf >> m_items.back().weight;            
         }
-        profitsF.close();
-        weightsF.close();        
+        kf.close();      
     }
 
 private:
@@ -110,17 +97,14 @@ class KnapsackProblem : public QGen::IFitness
                       , public QGen::IRepair
 {
 public:
-    KnapsackProblem( Knapsack* knapsack )
+    KnapsackProblem( Knapsack& knapsack )
         : m_knapsack( knapsack )
     {
-        if ( !knapsack )
-            throw std::string( "KnapsackProblem is trying to use NULL knapsack" ).append( __FUNCTION__ );  
-
-        for ( int i = 0; i < m_knapsack->itemsNum(); ++i )
+        for ( int i = 0; i < m_knapsack.itemsNum(); ++i )
         {
             m_ratios.push_back( ItemRatio() );
             m_ratios.back().pos = i;
-            m_ratios.back().ratio = (*m_knapsack)[i].profit / (*m_knapsack)[i].weight;
+            m_ratios.back().ratio = m_knapsack[i].profit / m_knapsack[i].weight;
         }
 
         std::sort( m_ratios.begin(), m_ratios.end() );
@@ -128,7 +112,6 @@ public:
 
     ~KnapsackProblem() 
     {
-        delete m_knapsack;
     }
 
     //--------------------------------------------------------
@@ -138,11 +121,10 @@ public:
     virtual BASETYPE operator()( MPI_Comm indComm, const QGen::QObserveState& observeState, long long startQBit, int idx )
     {
         BASETYPE totalProfit = BASETYPE(0);
-        Knapsack& knapPt = *m_knapsack;
 
-        for ( int i = 0; i < knapPt.itemsNum(); ++i )
+        for ( int i = 0; i < m_knapsack.itemsNum(); ++i )
             if ( observeState.at(i) )
-                totalProfit += knapPt[i].profit;
+                totalProfit += m_knapsack[i].profit;
 
         return totalProfit;
     }
@@ -152,7 +134,7 @@ public:
     virtual void operator()( MPI_Comm indComm, QGen::QObserveState& observeState, long long startQBit, int idx )
     {
         BASETYPE currentWeight = computeWeight( observeState );
-        bool overfilled = currentWeight > m_knapsack->capacity();
+        bool overfilled = currentWeight > m_knapsack.capacity();
         int pos = m_ratios.size() - 1;
         while ( overfilled && pos >= 0 )
         {
@@ -161,12 +143,12 @@ public:
                 if ( observeState.at( m_ratios[ pos ].pos ) )
                 {
                     observeState.set( m_ratios[ pos ].pos, false );
-                    currentWeight -= (*m_knapsack)[ m_ratios[ pos ].pos ].weight;
+                    currentWeight -= m_knapsack[ m_ratios[ pos ].pos ].weight;
                     break;
                 }
                 --pos;
             }          
-            overfilled = currentWeight > m_knapsack->capacity();
+            overfilled = currentWeight > m_knapsack.capacity();
         }
 
         pos = 0;
@@ -177,12 +159,12 @@ public:
                 if ( !observeState.at( m_ratios[ pos ].pos ) )
                 {
                     observeState.set( m_ratios[ pos ].pos, true );
-                    currentWeight += (*m_knapsack)[ m_ratios[ pos ].pos ].weight;
+                    currentWeight += m_knapsack[ m_ratios[ pos ].pos ].weight;
                     break;
                 }
                 ++pos;
             }
-            overfilled = currentWeight > m_knapsack->capacity();
+            overfilled = currentWeight > m_knapsack.capacity();
         }
 
         observeState.set( m_ratios[ pos ].pos, false );
@@ -194,15 +176,15 @@ private:
     BASETYPE computeWeight( const QGen::QObserveState& observState )
     {
         BASETYPE weight = BASETYPE(0);
-        for ( int i = 0; i < m_knapsack->itemsNum(); ++i )
+        for ( int i = 0; i < m_knapsack.itemsNum(); ++i )
             if ( observState.at(i) )
-                weight += (*m_knapsack)[i].weight;
+                weight += m_knapsack[i].weight;
 
         return weight;
     }
 
 private:
-    Knapsack* m_knapsack;
+    Knapsack& m_knapsack;
 
     struct ItemRatio
     {
@@ -223,16 +205,16 @@ int knapsack_main( parparser& args )
     try
     { 
         QGen::SParams params( MPI_COMM_WORLD, xmlFile );
-        params.indSize = params.problemSize;
-        const char* knapsackDataFolder = params.getCustomParameter( "knapsack-folder" );
-        if ( knapsackDataFolder == 0 )
-            throw std::string( "Unspecified knapsack folder data. " ).append( __FUNCTION__ );  
+        const char* knapsackDataFile = params.getCustomParameter( "knapsack-file" );
+        if ( knapsackDataFile == 0 )
+            throw std::string( "Unspecified knapsack file. " ).append( __FUNCTION__ );  
 
         Knapsack knapsack;
-        knapsack.loadFromFiles( knapsackDataFolder );
+        knapsack.loadFromFile( knapsackDataFile );
+        params.indSize = knapsack.itemsNum();
 
         QFileScreen screenClass( params.outFile.c_str() );
-        KnapsackProblem workClass( &knapsack );
+        KnapsackProblem workClass( knapsack );
         params.fClass = &workClass;
         params.repClass = &workClass;
         params.screenClass = &screenClass;
@@ -240,8 +222,13 @@ int knapsack_main( parparser& args )
         double processTime = 0.0;
         QGen::QGenProcess process( params );
         processTime = process.process();
+
         if ( process.isMaster() )
-            screenClass.printString( std::string( "TOTAL TIME (QGEN-CPU): " ).append( std::to_string( processTime ) ).c_str() );
+        {
+            std::stringstream sStr;
+            sStr << "TOTAL TIME (QGEN-CPU): " << processTime;
+            screenClass.printSStream( sStr );
+        }
     }
     catch( std::string err )
     {

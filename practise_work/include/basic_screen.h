@@ -4,6 +4,7 @@
 #include "qgen.h"
 
 #include <fstream>
+#include <sstream>
 
 //------------------------------------------------------------
 
@@ -68,6 +69,11 @@ public:
     {
         oFstr << str << "\n";
         oFstr.flush();
+    }
+
+    void printSStream( const std::stringstream& sStr )
+    {
+        printString( sStr.str().c_str() );        
     }
 
 private:
