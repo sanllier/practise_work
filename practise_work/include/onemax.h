@@ -40,24 +40,22 @@ int onemax_main( parparser& args )
     {       
         OneMaxProblem workClass;
         QGen::SParams params( MPI_COMM_WORLD, xmlFile, &workClass, 0, 0 );
+
         QFileScreen screenClass( params.outFile.c_str() );
         params.indSize = params.problemSize;
         params.screenClass = &screenClass;
-
-        double processTime = 0.0;
+  
         QGen::QGenProcess process( params );
-        processTime = process.process();
+        double processTime = process.process();
         if ( process.isMaster() )
         {
             std::stringstream sStr;
             sStr << "TOTAL TIME (QGEN-CPU): " << processTime;
             screenClass.printSStream( sStr );
         }
-            
     }
     catch( std::string err )
     {
-        
         std::cerr << "ERROR OCCURED:\n    " << err << "\n";
         std::cerr.flush();
     }
