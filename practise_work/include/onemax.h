@@ -37,7 +37,7 @@ int onemax_main( parparser& args )
     const char* xmlFile = args.get( "xml" ).asString(0);
 
     try
-    {       
+    {
         OneMaxProblem workClass;
         QGen::SParams params( MPI_COMM_WORLD, xmlFile, &workClass, 0, 0 );
 

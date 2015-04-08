@@ -14,6 +14,7 @@
 #include <vector>
 #include <list>
 #include <algorithm>
+#include <fstream>
 
 //------------------------------------------------------------
 
@@ -82,20 +83,11 @@ public:
         for ( int i = 0; i < lines; ++i )
         {
             sStream >> from >> to >> weight;
-            --from;
-            --to;
 
             if ( from >= m_facilitiesNum || to >= m_facilitiesNum || from < 0 || to < 0 )
                 throw std::string( "Invalid data file format. " ).append( __FUNCTION__ );
 
-            if ( to < from )
-            {
-                int temp = to;
-                to = from;
-                from = temp;
-            }
-
-            if ( from == to )
+            if ( to == from )
                 continue;
 
             CommData::iterator q = m_data[ from ].begin();
@@ -111,6 +103,9 @@ public:
             if ( q == m_data[ from ].end() )
                 m_data[ from ].push_back( std::make_pair( to, fabsf( weight ) ) );
         }
+
+        m_locationsNum = partitionSizes[0];
+        m_gridType = 0;
 
         for ( int i = partitionTypesNum - 1; i >= 0; --i )
         {
@@ -129,23 +124,52 @@ public:
 
     //--------------------------------------------------------
 
+    void SaveMappingFile( const char* filename, QGen::QBaseIndivid& bestInd, const int coords[2] )
+    {
+        if ( !filename || !filename[0] )
+            throw std::string( "Invalid mapping file name. " ).append( __FUNCTION__ );
+
+        if ( coords[0] == 0 )
+        {
+            if ( !m_isSMP )
+                throw std::string( "Non-SMP configuration is not supported. " ).append( __FUNCTION__ );
+
+            (*this)( MPI_COMM_NULL, bestInd.getObservState(), 0, 0 );
+
+            std::ofstream oStr;
+            oStr.open( filename, std::ofstream::out );
+            if ( !oStr.good() )
+                throw std::string( "Invalid mapping file. " ).append( __FUNCTION__ );
+
+            for ( int i = 0; i < m_reinterpretedObsState.size(); ++i )
+            {
+                GridPos pos = GetGridPos( m_reinterpretedObsState[i] );
+                oStr << pos.x << " " << pos.y << " " << pos.z << " 0\n";
+            }
+
+            oStr.close();
+        }
+    }
+
+    //--------------------------------------------------------
+
         // QGen::IFitness
 
     virtual float operator()( MPI_Comm indComm, const QGen::QObserveState& observeState, long long startQBit, int idx )
     {       
-        float sum = 0.0f;
+        double sum = 0.0f;
         for ( size_t i = 0; i < m_data.size(); ++i )
         {                        
             for ( CommData::iterator q = m_data[i].begin(); q != m_data[i].end(); ++q )
             {
-                GridPos fromPos = GetGridPos(i);
-                GridPos toPos   = GetGridPos(q->first);
+                GridPos fromPos = GetGridPos( m_reinterpretedObsState[i] );
+                GridPos toPos   = GetGridPos( m_reinterpretedObsState[ q->first ] );
 
                 sum += fromPos.GetShortestWay( toPos, gridDims[ m_gridType ] ) * q->second;
             }
         }
 
-        return sum == 0.0f ? 1000.0f : 100.0f / sum;    // it is not a misprint
+        return sum == 0.0f ? 1000000.0f : float( 1000000.0 / sum );    // it is not a misprint
     }
 
         // QGen::IRepair
@@ -170,7 +194,7 @@ public:
                 ++m_occupiedPlaces[ current ];
         }
 
-        const int processesPerNode = m_isSMP ? 4 : 1;
+        const int processesPerNode = m_isSMP ? 1 : 4;
 
         unsigned emptyPlacePos = 0;
         for ( int i = 0; i < m_facilitiesNum; ++i )
@@ -187,19 +211,25 @@ public:
             else if ( m_occupiedPlaces[ current ] > processesPerNode )
             {
                 --m_occupiedPlaces[ current ];
-                while ( m_occupiedPlaces[ emptyPlacePos ] >= processesPerNode )
+                while ( (int)emptyPlacePos < m_locationsNum && m_occupiedPlaces[ emptyPlacePos ] >= processesPerNode )
                     ++emptyPlacePos;
 
-                ++m_occupiedPlaces[ emptyPlacePos ];                
-                current = emptyPlacePos; 
+                if ( (int)emptyPlacePos < m_locationsNum )
+                {
+                    ++m_occupiedPlaces[ emptyPlacePos ];                
+                    current = emptyPlacePos;
+                }
+                else
+                {
+                    throw std::string( "Unexpected error. " ).append( __FUNCTION__ );
+                }
             }
         }
     }
 
     //--------------------------------------------------------
 
-    int GetIndividSize() const { return m_bitsPerPlace; }
-    int GetIndividsNum() const { return m_facilitiesNum; }
+    int GetProblemSize() const { return m_problemSize;  }
 
 private:
     struct GridPos
@@ -214,11 +244,12 @@ private:
             const int dYa = int( labs( y - other.y ) );
             const int dZa = int( labs( z - other.z ) );
 
-            const int dXb = x + dims[0] - other.x;
-            const int dZb = y + dims[1] - other.y;
-            const int dYb = z + dims[2] - other.z;
+            //const int dXb = x + dims[0] - other.x;
+            //const int dZb = y + dims[1] - other.y;
+            //const int dYb = z + dims[2] - other.z;
 
-            return std::min( dXa, dXb ) + std::min( dYa, dYb ) + std::min( dZa, dZb );
+            //return std::min( dXa, dXb ) + std::min( dYa, dYb ) + std::min( dZa, dZb );
+            return dXa + dYa + dZa;
         }
     };
 
@@ -263,10 +294,9 @@ int mapping_main( parparser& args )
         MappingProblem mapping;
         mapping.ReadDataFile( params.getCustomParameter( "datafile" ) );
 
-        params.individsNum = mapping.GetIndividsNum();
-        params.indSize     = mapping.GetIndividSize();
+        params.indSize     = mapping.GetProblemSize();
 
-        QScreen screenClass;
+        QFileScreen screenClass( params.outFile.c_str() );
 
         params.fClass      = &mapping;
         params.repClass    = &mapping;
@@ -275,11 +305,17 @@ int mapping_main( parparser& args )
         double processTime = 0.0;
         QGen::QGenProcess process( params );
         processTime = process.process();
+
         if ( process.isMaster() )
         {
-            std::cout << "TOTAL TIME (QGEN-CPU): " << processTime << "\r\n";
-            std::cout.flush();
+            std::stringstream sStr;
+            sStr << "TOTAL TIME (QGEN-CPU): " << processTime;
+            screenClass.printSStream( sStr );
         }
+
+        int coords[2];
+        QGen::QBaseIndivid& bestIndivid = *process.getBestIndivid( coords );
+        mapping.SaveMappingFile( params.getCustomParameter( "mapfile" ), bestIndivid, coords );
     }
     catch( std::string err )
     {
